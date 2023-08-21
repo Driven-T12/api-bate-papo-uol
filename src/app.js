@@ -103,6 +103,28 @@ app.post("/messages", async (req, res) => {
     }
 })
 
+app.get("/messages", async (req, res) => {
+    const { user } = req.headers
+    const { limit } = req.query
+    const numberLimit = Number(limit)
+
+    if (limit !== undefined && (numberLimit <= 0 || isNaN(numberLimit))) {
+        return res.status(422).send("Insira um limite válido")
+    }
+
+    try {
+        const messages = await db.collection("messages")
+            .find({ $or: [{ from: user }, { to: user }, { to: "Todos" }, { type: "message" }] })
+            .sort({ time: -1 })
+            .limit(limit === undefined ? 0 : numberLimit)
+            .toArray()
+
+        res.send(messages)
+    } catch (err) {
+        res.status(500).send(err.message)
+    }
+})
+
 // Deixa o app ligado, escutando, à espera de requisições
 const PORT = 5000
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`))
