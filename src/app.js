@@ -27,6 +27,13 @@ const db = mongoClient.db()
 // Schemas
 const participantSchema = Joi.object({ name: Joi.string().required() })
 
+const messageSchema = Joi.object({
+    from: Joi.string().required(),
+    to: Joi.string().required(),
+    text: Joi.string().required(),
+    type: Joi.required().valid("message", "private_message")
+})
+
 // Rotas
 app.post("/participants", async (req, res) => {
     const { name } = req.body
@@ -34,7 +41,7 @@ app.post("/participants", async (req, res) => {
     const validation = participantSchema.validate(req.body, { abortEarly: false })
     if (validation.error) {
         const errors = validation.error.details.map(detail => detail.message)
-        res.status(422).send(errors)
+        return res.status(422).send(errors)
     }
 
     try {
@@ -68,6 +75,33 @@ app.get("/participants", async (req, res) => {
     }
 })
 
+app.post("/messages", async (req, res) => {
+    const { user } = req.headers
+
+    const validation = messageSchema.validate({ ...req.body, from: user }, { abortEarly: false })
+    if (validation.error) {
+        const errors = validation.error.details.map(detail => detail.message)
+        return res.status(422).send(errors)
+    }
+
+    try {
+        const participant = await db.collection("participants").findOne({ name: user })
+        if (!participant) return res.status(422).send("Você precisa entrar na sala antes de enviar uma mensagem")
+
+
+        const message = {
+            ...req.body,
+            from: user,
+            time: dayjs().format("HH:mm:ss")
+        }
+
+        await db.collection("messages").insertOne(message)
+        res.sendStatus(201)
+
+    } catch (err) {
+        res.status(500).send(err.message)
+    }
+})
 
 // Deixa o app ligado, escutando, à espera de requisições
 const PORT = 5000
