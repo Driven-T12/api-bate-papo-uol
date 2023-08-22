@@ -148,6 +148,35 @@ app.post("/status", async (req, res) => {
     }
 })
 
+// Funções
+setInterval(async () => {
+    const tenSecondsAgo = Date.now() - 10000
+
+    try {
+        const inactiveUsers = await db.collection("participants")
+            .find({ lastStatus: { $lt: tenSecondsAgo } })
+            .toArray()
+
+        if (inactiveUsers.length > 0) {
+            const messages = inactiveUsers.map(user => {
+                return {
+                    from: user.name,
+                    to: 'Todos',
+                    text: 'sai da sala...',
+                    type: 'status',
+                    time: dayjs().format("HH:mm:ss")
+                }
+            })
+
+            await db.collection("messages").insertMany(messages)
+            await db.collection("participants").deleteMany({ lastStatus: { $lt: tenSecondsAgo } })
+        }
+
+    } catch (err) {
+        console.log(err.message)
+    }
+}, 15000)
+
 // Deixa o app ligado, escutando, à espera de requisições
 const PORT = 5000
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`))
